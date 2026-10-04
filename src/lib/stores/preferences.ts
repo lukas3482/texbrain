@@ -16,6 +16,10 @@ export interface Preferences {
   // remote mirror for latex packages not bundled with the app,
   // empty string disables remote fetching entirely
   texliveMirror: string;
+  // the tab keeps a socket to brainbridge on this machine, off unless
+  // asked for (the palette, or ?bridge in the address)
+  bridge: boolean;
+  bridgePort: number;
 }
 
 const defaults: Preferences = {
@@ -29,7 +33,9 @@ const defaults: Preferences = {
   autoSaveDelay: 2000,
   previewDelay: 500,
   autoCompile: true,
-  texliveMirror: 'https://texlive.texlyre.org/'
+  texliveMirror: 'https://texlive.texlyre.org/',
+  bridge: false,
+  bridgePort: 7332
 };
 
 function createPreferencesStore() {
