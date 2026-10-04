@@ -29,6 +29,8 @@
     openRepo as gitOpenRepo, initRepo as gitInitRepo, refreshGitState, notifyFilesChanged,
     stageAll as gitStageAll, commit as gitCommit, hasAuthor as gitHasAuthor
   } from '$lib/git/engine';
+  import { installBridge } from '$lib/bridge/connection';
+  import { setEditorHooks } from '$lib/bridge/hooks';
 
   import Logo from '$lib/ui/Logo.svelte';
   import TabBar from '$lib/ui/TabBar.svelte';
@@ -826,8 +828,14 @@
     function onFocus() { notifyFilesChanged(0); }
     window.addEventListener('focus', onFocus);
 
+    // brainbridge reaches what only this page holds through these
+    setEditorHooks({ view: () => editorView, compile: () => doCompile(), compiling: () => compiling, pdf: () => pdfData });
+    const removeBridge = installBridge();
+
     return () => {
       unobserveCompile?.();
+      removeBridge();
+      setEditorHooks(null);
       window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('focus', onFocus);
     };
