@@ -2,6 +2,8 @@
   import { compileStatus, compileProblems, previewTab, previewOpen } from '$lib/stores/app';
   import { activeFile } from '$lib/project/store';
   import { gitEnabled, gitCurrentBranch } from '$lib/git/store';
+  import { preferences } from '$lib/stores/preferences';
+  import { bridge } from '$lib/bridge/state';
 
   export let cursorLine = 1;
   export let cursorCol = 1;
@@ -10,6 +12,26 @@
 
   $: errors = $compileProblems.filter(p => p.severity === 'error').length;
   $: warnings = $compileProblems.filter(p => p.severity === 'warning').length;
+
+  const bridgeColors: Record<string, string> = {
+    off: 'var(--text-muted)',
+    connecting: 'var(--warning)',
+    connected: 'var(--success)'
+  };
+
+  // what the bridge segment says: the last command while connected,
+  // otherwise where the connection stands
+  $: bridgeText = $bridge.state === 'connected'
+    ? ($bridge.lastAction ?? 'connected')
+    : $bridge.state === 'connecting'
+      ? `waiting for brainbridge on port ${$bridge.port}`
+      : 'off';
+
+  $: bridgeTitle = $bridge.state === 'connected'
+    ? `Connected to brainbridge ${$bridge.server ?? ''}. Click to disconnect`
+    : $bridge.state === 'connecting'
+      ? `brainbridge is not running on port ${$bridge.port}. Start it (brainbridge --port ${$bridge.port}), or let the MCP client it is added to start it, and the tab connects on its own. If the browser asks to let this site reach apps on this device, allow it. Click to switch the bridge off`
+      : 'Another tab has the bridge, Bridge: connect in the palette takes it back. Click to switch it off';
 
   function plural(n: number, word: string): string {
     return `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -52,6 +74,20 @@
         <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><circle cx="5" cy="4" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="12" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="12" cy="6" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6v4M7 5l3.5 1" stroke="currentColor" stroke-width="1.3"/></svg>
         {$gitCurrentBranch}
       </span>
+    {/if}
+    {#if $preferences.bridge}
+      <span class="sep"></span>
+      <button
+        class="status-item bridge"
+        on:click={() => preferences.update((p) => ({ ...p, bridge: false }))}
+        title={bridgeTitle}>
+        <span
+          class="dot"
+          class:pulse={$bridge.state === 'connecting'}
+          style="background: {bridgeColors[$bridge.state]}"></span>
+        Bridge
+        <span class="action">{bridgeText}</span>
+      </button>
     {/if}
   </div>
 
@@ -113,6 +149,16 @@
   .problems { color: var(--warning); cursor: pointer; font-family: inherit; font-size: inherit; padding: 0 2px; }
   .problems.has-errors { color: var(--error); }
   .problems:hover { text-decoration: underline; }
+
+  .bridge { font-family: inherit; padding: 0 2px; min-width: 0; }
+  .bridge:hover { color: var(--text-secondary); }
+  .bridge .action {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+  }
 
   .dot {
     width: 5px;
