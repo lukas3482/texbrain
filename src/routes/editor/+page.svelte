@@ -31,6 +31,7 @@
   } from '$lib/git/engine';
   import { installBridge } from '$lib/bridge/connection';
   import { setEditorHooks } from '$lib/bridge/hooks';
+  import { bridgeCommands } from '$lib/bridge/palette';
 
   import Logo from '$lib/ui/Logo.svelte';
   import TabBar from '$lib/ui/TabBar.svelte';
@@ -582,6 +583,7 @@
     { id: 'preview', label: 'Show Preview', shortcut: '', action: () => previewTab.set('preview'), category: 'view' },
     { id: 'log', label: 'Show Log', shortcut: '', action: () => previewTab.set('log'), category: 'view' },
     { id: 'git', label: 'Toggle Git Panel', shortcut: 'Ctrl+G', action: toggleGitPanel, category: 'view' },
+    ...bridgeCommands,
   ];
 
   // git works on the project folder, single files have nothing to track
