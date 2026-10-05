@@ -18,6 +18,25 @@ let retry: ReturnType<typeof setTimeout> | null = null;
 // set when another tab took the connection, so this one stops trying
 let replaced = false;
 let announced = false;
+// chrome asks before a public site may reach 127.0.0.1, and until someone
+// clicks allow the socket just fails. said once per page load
+let hinted = false;
+let hint: ReturnType<typeof setTimeout> | null = null;
+
+function clearHint(): void {
+  if (hint) clearTimeout(hint);
+  hint = null;
+}
+
+function hintSoon(): void {
+  if (hinted || hint) return;
+  hint = setTimeout(() => {
+    hint = null;
+    if (!wanted || get(bridge).state !== 'connecting') return;
+    hinted = true;
+    addToast(`Waiting for brainbridge on port ${port}. If the browser asks to let this site reach apps on this device, allow it`, 'info', 10000);
+  }, 5000);
+}
 
 function send(message: TabMessage): void {
   if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
@@ -57,6 +76,7 @@ function onMessage(event: MessageEvent): void {
   switch (message.type) {
     case 'welcome':
       attempts = 0;
+      clearHint();
       bridge.update((b) => ({ ...b, state: 'connected', port, server: message.version ?? null }));
       if (!announced) addToast('Bridge connected to brainbridge', 'success');
       announced = true;
@@ -93,6 +113,7 @@ function connect(): void {
   }
   replaced = false;
   bridge.update((b) => ({ ...b, state: 'connecting', port }));
+  hintSoon();
   let ws: WebSocket;
   try {
     ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
@@ -122,6 +143,7 @@ function disconnect(): void {
     clearTimeout(retry);
     retry = null;
   }
+  clearHint();
   const open = socket?.readyState === WebSocket.OPEN;
   if (socket) {
     socket.onclose = null;
