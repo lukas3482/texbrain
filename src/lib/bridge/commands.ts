@@ -11,6 +11,7 @@ import { compileProblems, compileStatus } from '$lib/stores/app';
 import { getVirtualRoot } from '$lib/fs/virtual-fs';
 import { version } from '$lib/version';
 import { editorHooks } from './hooks';
+import { linkNotebook, notebookFor } from './links';
 
 export type CommandArgs = Record<string, unknown>;
 
@@ -21,8 +22,23 @@ export interface CommandContext {
 
 type Handler = (args: CommandArgs, ctx: CommandContext) => Promise<unknown> | unknown;
 
+function str(value: unknown, name: string): string {
+  if (typeof value !== 'string' || !value) throw new Error(`${name} must be a non-empty string`);
+  return value;
+}
+
+function optStr(value: unknown): string | undefined {
+  return typeof value === 'string' && value ? value : undefined;
+}
+
 function isDrawio(name: string): boolean {
   return name.toLowerCase().endsWith('.drawio');
+}
+
+function requireProjectName(): string {
+  const name = get(projectName);
+  if (!name || !get(projectHandle)) throw new Error('No project is open. Open one with tex_open or create one with tex_create.');
+  return name;
 }
 
 function count(severity: 'error' | 'warning'): number {
@@ -44,7 +60,7 @@ async function describeProject() {
   const name = get(projectName);
   const handle = get(projectHandle);
   if (!name || !handle) return null;
-  return { name, kind: await projectKind(handle) };
+  return { name, kind: await projectKind(handle), notes: notebookFor(name) };
 }
 
 function cursor() {
@@ -69,7 +85,16 @@ async function status() {
 }
 
 const handlers: Record<string, Handler> = {
-  status
+  status,
+
+  // the braiNOTES notebook that belongs to the open project, null unlinks
+  link({ notes }) {
+    const project = requireProjectName();
+    if (notes !== null && notes !== undefined && typeof notes !== 'string') throw new Error('notes must be a notebook id or null');
+    const notebook = optStr(notes)?.trim() || null;
+    linkNotebook(project, notebook);
+    return { project, notes: notebook, summary: notebook ? `${project} linked to notebook ${notebook}` : `${project} unlinked` };
+  }
 };
 
 export const commandNames = Object.keys(handlers);
