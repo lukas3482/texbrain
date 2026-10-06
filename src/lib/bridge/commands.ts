@@ -8,10 +8,13 @@
 import { get } from 'svelte/store';
 import { activeFile, projectHandle, projectName } from '$lib/project/store';
 import { compileProblems, compileStatus } from '$lib/stores/app';
-import { getVirtualRoot } from '$lib/fs/virtual-fs';
+import { getVirtualRoot, listVirtualProjects } from '$lib/fs/virtual-fs';
+import { templates } from '$lib/templates';
 import { version } from '$lib/version';
 import { editorHooks } from './hooks';
 import { linkNotebook, notebookFor } from './links';
+import { listProjectFiles } from './project-files';
+import { createStoredProject, openStoredProject } from './projects';
 
 export type CommandArgs = Record<string, unknown>;
 
@@ -33,6 +36,15 @@ function optStr(value: unknown): string | undefined {
 
 function isDrawio(name: string): boolean {
   return name.toLowerCase().endsWith('.drawio');
+}
+
+// a project name becomes a folder, so no slashes and nothing hidden
+function projectNameArg(value: unknown): string {
+  const name = str(value, 'name').trim();
+  if (!name || /[\\/:*?"<>|]/.test(name) || name.startsWith('.') || name.length > 100) {
+    throw new Error(`"${name}" can't be a project name, it becomes a folder name`);
+  }
+  return name;
 }
 
 function requireProjectName(): string {
@@ -86,6 +98,34 @@ async function status() {
 
 const handlers: Record<string, Handler> = {
   status,
+
+  // only the projects stored inside the browser, a folder on disk needs the
+  // picker and a click every time
+  async projects() {
+    const root = await getVirtualRoot();
+    const out = [];
+    for (const name of await listVirtualProjects()) {
+      const list = await listProjectFiles(await root.getDirectoryHandle(name));
+      const updatedAt = list.length > 0 ? Math.max(...list.map((f) => f.modified)) : null;
+      out.push({ name, updatedAt, notes: notebookFor(name) });
+    }
+    return out;
+  },
+
+  async open({ name }) {
+    const wanted = str(name, 'name');
+    if (get(projectName) !== wanted || !get(projectHandle)) await openStoredProject(wanted);
+    return { ...(await status()), summary: `opened ${wanted}` };
+  },
+
+  async create({ name, template }) {
+    const project = projectNameArg(name);
+    const id = optStr(template);
+    const picked = id ? templates.find((t) => t.id === id) : undefined;
+    if (id && !picked) throw new Error(`Unknown template "${id}", there are ${templates.map((t) => t.id).join(', ')}`);
+    await createStoredProject(project, picked?.content);
+    return { ...(await status()), summary: `created ${project}` };
+  },
 
   // the braiNOTES notebook that belongs to the open project, null unlinks
   link({ notes }) {
