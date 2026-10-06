@@ -32,6 +32,7 @@
   import { installBridge } from '$lib/bridge/connection';
   import { setEditorHooks } from '$lib/bridge/hooks';
   import { bridgeCommands } from '$lib/bridge/palette';
+  import { openProjectFromUrl } from '$lib/bridge/projects';
 
   import Logo from '$lib/ui/Logo.svelte';
   import TabBar from '$lib/ui/TabBar.svelte';
@@ -833,6 +834,7 @@
     // brainbridge reaches what only this page holds through these
     setEditorHooks({ view: () => editorView, compile: () => doCompile(), compiling: () => compiling, pdf: () => pdfData });
     const removeBridge = installBridge();
+    void openProjectFromUrl();
 
     return () => {
       unobserveCompile?.();
