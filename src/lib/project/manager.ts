@@ -52,23 +52,38 @@ export async function handleNewProject() {
     if (!name) return;
 
     const projectDir = await dirHandle.getDirectoryHandle(name, { create: true });
-    const mainFile = await projectDir.getFileHandle('main.tex', { create: true });
-    const writable = await mainFile.createWritable();
-    await writable.write(DEFAULT_TEX);
-    await writable.close();
-
-    const tree = await readTreeFromHandle(projectDir);
-    projectTree.set(tree);
-    projectName.set(name);
-    projectHandle.set(projectDir);
-    entryPoint.set('main.tex');
-    await handleOpenFileFromTree(mainFile, 'main.tex');
+    await startProject(projectDir, name, DEFAULT_TEX);
     addToast(`Created project: ${name}`, 'success', 2000);
   } catch (e: any) {
     if (e.name !== 'AbortError') {
       addToast(`Failed to create project: ${e.message}`, 'error');
     }
   }
+}
+
+// a fresh project folder gets its main.tex, then the project and the file open
+async function startProject(projectDir: FileSystemDirectoryHandle, name: string, content: string) {
+  const mainFile = await projectDir.getFileHandle('main.tex', { create: true });
+  const writable = await mainFile.createWritable();
+  await writable.write(content);
+  await writable.close();
+
+  const tree = await readTreeFromHandle(projectDir);
+  projectTree.set(tree);
+  projectName.set(name);
+  projectHandle.set(projectDir);
+  entryPoint.set('main.tex');
+  await handleOpenFileFromTree(mainFile, 'main.tex');
+}
+
+// a new project inside the browser, without the picker or a prompt, so
+// brainbridge can make one. a name that is taken is an error, not an overwrite
+export async function createBrowserProject(name: string, content = DEFAULT_TEX) {
+  if (!supportsVirtualProjects()) throw new Error('This browser can\'t store projects. Chrome, Edge or Firefox can.');
+  const root = await getVirtualRoot();
+  const taken = await root.getDirectoryHandle(name).then(() => true, () => false);
+  if (taken) throw new Error(`A project named "${name}" already exists in this browser`);
+  await startProject(await root.getDirectoryHandle(name, { create: true }), name, content);
 }
 
 export async function cloneProject(url: string, name: string): Promise<void> {
@@ -104,17 +119,22 @@ async function pickEntryPoint(tree: TreeEntry[]) {
   }
 }
 
-// a project that lives inside the browser, by name
+// a project that lives inside the browser, by name. throws when it isn't
+// there, the bridge passes that on
+export async function loadBrowserProject(name: string) {
+  const root = await getVirtualRoot();
+  const projectDir = await root.getDirectoryHandle(name);
+  const tree = await readTreeFromHandle(projectDir);
+  projectTree.set(tree);
+  projectName.set(name);
+  projectHandle.set(projectDir);
+  await pickEntryPoint(tree);
+}
+
 export async function openBrowserProject(name: string) {
   try {
-    const root = await getVirtualRoot();
-    const projectDir = await root.getDirectoryHandle(name);
-    const tree = await readTreeFromHandle(projectDir);
-    projectTree.set(tree);
-    projectName.set(name);
-    projectHandle.set(projectDir);
+    await loadBrowserProject(name);
     addToast(`Opened project: ${name}`, 'success', 2000);
-    await pickEntryPoint(tree);
   } catch (e: any) {
     addToast(`Failed to open project: ${e.message}`, 'error');
   }
