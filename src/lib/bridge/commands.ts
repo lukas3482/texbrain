@@ -6,14 +6,16 @@
 // imported lazily
 
 import { get } from 'svelte/store';
-import { activeFile, projectHandle, projectName } from '$lib/project/store';
+import { activeFile, activeFileId, files, markFileSaved, projectHandle, projectName } from '$lib/project/store';
+import { refreshProjectTree } from '$lib/project/manager';
 import { compileProblems, compileStatus } from '$lib/stores/app';
 import { getVirtualRoot, listVirtualProjects } from '$lib/fs/virtual-fs';
 import { templates } from '$lib/templates';
 import { version } from '$lib/version';
 import { editorHooks } from './hooks';
 import { linkNotebook, notebookFor } from './links';
-import { listProjectFiles } from './project-files';
+import { cleanPath, listProjectFiles, readProjectFile, writeProjectFile } from './project-files';
+import { changeBetween } from './edits';
 import { createStoredProject, openStoredProject } from './projects';
 
 export type CommandArgs = Record<string, unknown>;
@@ -51,6 +53,25 @@ function requireProjectName(): string {
   const name = get(projectName);
   if (!name || !get(projectHandle)) throw new Error('No project is open. Open one with tex_open or create one with tex_create.');
   return name;
+}
+
+function requireProject(): FileSystemDirectoryHandle {
+  requireProjectName();
+  return get(projectHandle) as FileSystemDirectoryHandle;
+}
+
+// these have no text to hand over
+const BINARY = /\.(png|jpe?g|gif|bmp|webp|pdf|eps|ps|tfm|pfb|vf|otf|ttf|woff2?|zip|gz)$/i;
+
+// an open tab shows what was written. the one in the editor gets it through
+// the view, so ctrl+z brings the old text back
+function showWritten(path: string, text: string): void {
+  const tab = get(files).find((f) => f.path === path);
+  if (!tab) return;
+  const view = tab.id === get(activeFileId) && !isDrawio(tab.name) ? editorHooks()?.view() : null;
+  const change = view ? changeBetween(view.state.doc.toString(), text) : null;
+  if (view && change) view.dispatch({ changes: change });
+  markFileSaved(tab.id, text);
 }
 
 function count(severity: 'error' | 'warning'): number {
@@ -125,6 +146,29 @@ const handlers: Record<string, Handler> = {
     if (id && !picked) throw new Error(`Unknown template "${id}", there are ${templates.map((t) => t.id).join(', ')}`);
     await createStoredProject(project, picked?.content);
     return { ...(await status()), summary: `created ${project}` };
+  },
+
+  async files() {
+    const list = await listProjectFiles(requireProject());
+    return list.map(({ path, size }) => ({ path, size }));
+  },
+
+  async read({ path }) {
+    const p = cleanPath(path);
+    // an open tab has the newest text, unsaved edits included
+    const tab = get(files).find((f) => f.path === p);
+    if (tab) return { path: p, text: tab.content };
+    if (BINARY.test(p)) throw new Error(`${p} is not a text file`);
+    return { path: p, text: await readProjectFile(requireProject(), p) };
+  },
+
+  async write({ path, text }) {
+    const p = cleanPath(path);
+    if (typeof text !== 'string') throw new Error('text must be a string');
+    const created = await writeProjectFile(requireProject(), p, text);
+    showWritten(p, text);
+    if (created) await refreshProjectTree();
+    return { path: p, size: new TextEncoder().encode(text).length, created, summary: `${created ? 'created' : 'wrote'} ${p}` };
   },
 
   // the braiNOTES notebook that belongs to the open project, null unlinks
