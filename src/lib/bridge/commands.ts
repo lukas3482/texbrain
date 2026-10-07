@@ -6,8 +6,10 @@
 // imported lazily
 
 import { get } from 'svelte/store';
-import { activeFile, activeFileId, files, markFileSaved, projectHandle, projectName } from '$lib/project/store';
-import { refreshProjectTree } from '$lib/project/manager';
+import { tick } from 'svelte';
+import type { EditorView } from '@codemirror/view';
+import { activeFile, activeFileId, files, markFileSaved, projectHandle, projectName, setActiveTab } from '$lib/project/store';
+import { findProjectFile, handleOpenFileFromTree, refreshProjectTree } from '$lib/project/manager';
 import { compileProblems, compileStatus } from '$lib/stores/app';
 import { getVirtualRoot, listVirtualProjects } from '$lib/fs/virtual-fs';
 import { templates } from '$lib/templates';
@@ -15,7 +17,7 @@ import { version } from '$lib/version';
 import { editorHooks } from './hooks';
 import { linkNotebook, notebookFor } from './links';
 import { cleanPath, listProjectFiles, readProjectFile, writeProjectFile } from './project-files';
-import { changeBetween } from './edits';
+import { changeBetween, cursorOf, insertion } from './edits';
 import { createStoredProject, openStoredProject } from './projects';
 
 export type CommandArgs = Record<string, unknown>;
@@ -99,10 +101,32 @@ async function describeProject() {
 function cursor() {
   const file = get(activeFile);
   const view = file && !isDrawio(file.name) ? editorHooks()?.view() : null;
-  if (!view) return null;
-  const head = view.state.selection.main.head;
-  const line = view.state.doc.lineAt(head);
-  return { line: line.number, col: head - line.from + 1 };
+  return view ? cursorOf(view.state) : null;
+}
+
+// the file an insert goes to comes up in the editor first
+async function focusFile(path: string): Promise<void> {
+  let tab = get(files).find((f) => f.path === path);
+  if (!tab) {
+    const entry = findProjectFile(path);
+    if (!entry?.handle || entry.path !== path) throw new Error(`There is no file ${path} in the project. Make it with tex_write first.`);
+    await handleOpenFileFromTree(entry.handle, entry.path);
+    tab = get(files).find((f) => f.path === path);
+    if (!tab) throw new Error(`${path} could not be opened`);
+  }
+  if (get(activeFileId) !== tab.id) setActiveTab(tab.id);
+  await tick();
+}
+
+function requireView(): EditorView {
+  const file = get(activeFile);
+  if (!file) throw new Error('No file is open in the editor');
+  if (isDrawio(file.name)) throw new Error(`${file.path} is a draw.io diagram, there is no text to insert into`);
+  const view = editorHooks()?.view();
+  if (!view) throw new Error('The editor is not ready in the tab yet, try again');
+  // the page swaps the text of the active tab into the view on its own time
+  if (view.state.doc.toString() !== file.content.replace(/\r\n?/g, '\n')) throw new Error(`The editor is not showing ${file.path} yet, try again`);
+  return view;
 }
 
 async function status() {
@@ -169,6 +193,16 @@ const handlers: Record<string, Handler> = {
     showWritten(p, text);
     if (created) await refreshProjectTree();
     return { path: p, size: new TextEncoder().encode(text).length, created, summary: `${created ? 'created' : 'wrote'} ${p}` };
+  },
+
+  // straight through the view, one undo step, the text exactly as sent
+  async insert({ text, at, file }) {
+    if (typeof text !== 'string' || !text) throw new Error('text must be a non-empty string');
+    if (file !== undefined && file !== null) await focusFile(cleanPath(file));
+    const view = requireView();
+    view.dispatch(insertion(view.state, text, at));
+    const path = get(activeFile)?.path ?? null;
+    return { file: path, cursor: cursorOf(view.state), summary: `${text.length} characters into ${path}` };
   },
 
   // the braiNOTES notebook that belongs to the open project, null unlinks
