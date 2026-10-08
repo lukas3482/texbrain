@@ -92,7 +92,7 @@ async function projectKind(handle: FileSystemDirectoryHandle): Promise<'browser'
   }
 }
 
-async function describeProject() {
+export async function describeProject() {
   const name = get(projectName);
   const handle = get(projectHandle);
   if (!name || !handle) return null;

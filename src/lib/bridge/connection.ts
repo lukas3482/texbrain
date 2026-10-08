@@ -9,6 +9,7 @@ import { version } from '$lib/version';
 import { PROTOCOL_VERSION, type CallMessage, type ServerMessage, type TabMessage } from './protocol';
 import { bridge } from './state';
 import { runCommand } from './commands';
+import { watchEditor } from './events';
 
 let socket: WebSocket | null = null;
 let wanted = false;
@@ -181,7 +182,9 @@ export function installBridge(): () => void {
       disconnect();
     }
   });
+  const stopEvents = watchEditor(emit);
   return () => {
+    stopEvents();
     unsubscribe();
     wanted = false;
     disconnect();
