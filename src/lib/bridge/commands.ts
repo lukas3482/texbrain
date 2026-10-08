@@ -8,9 +8,10 @@
 import { get } from 'svelte/store';
 import { tick } from 'svelte';
 import type { EditorView } from '@codemirror/view';
-import { activeFile, activeFileId, files, markFileSaved, projectHandle, projectName, setActiveTab } from '$lib/project/store';
+import { activeFile, activeFileId, entryPoint, files, markFileSaved, projectHandle, projectName, setActiveTab } from '$lib/project/store';
 import { findProjectFile, handleOpenFileFromTree, refreshProjectTree } from '$lib/project/manager';
-import { compileProblems, compileStatus } from '$lib/stores/app';
+import { compileLog, compileProblems, compileStatus } from '$lib/stores/app';
+import { problemsReport } from '$lib/compiler/log';
 import { getVirtualRoot, listVirtualProjects } from '$lib/fs/virtual-fs';
 import { templates } from '$lib/templates';
 import { version } from '$lib/version';
@@ -203,6 +204,32 @@ const handlers: Record<string, Handler> = {
     view.dispatch(insertion(view.state, text, at));
     const path = get(activeFile)?.path ?? null;
     return { file: path, cursor: cursorOf(view.state), summary: `${text.length} characters into ${path}` };
+  },
+
+  // answers right away, compile_status says when it is done. the first
+  // compile pulls packages and can take a while
+  compile() {
+    const hooks = editorHooks();
+    if (!hooks) throw new Error('The editor is not open in the tab');
+    const file = get(activeFile);
+    if (!file) throw new Error('Nothing to compile, no file is open');
+    if (hooks.compiling()) return { started: false, reason: 'a compile is already running', summary: 'already compiling' };
+    hooks.compile();
+    if (get(compileStatus) !== 'compiling') return { started: false, reason: `${file.path} can't be compiled`, summary: 'nothing to compile' };
+    return { started: true, summary: 'started' };
+  },
+
+  compile_status() {
+    const state = get(compileStatus);
+    const mainFile = get(entryPoint) || get(activeFile)?.path || 'document';
+    return {
+      state: state === 'success' ? 'ready' : state,
+      errors: count('error'),
+      warnings: count('warning'),
+      problems: problemsReport(get(compileProblems), mainFile),
+      log: get(compileLog).slice(-60).join('\n'),
+      summary: state === 'success' ? 'ready' : state
+    };
   },
 
   // the braiNOTES notebook that belongs to the open project, null unlinks
