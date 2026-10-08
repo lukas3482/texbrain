@@ -16,6 +16,7 @@ import { getVirtualRoot, listVirtualProjects } from '$lib/fs/virtual-fs';
 import { templates } from '$lib/templates';
 import { version } from '$lib/version';
 import { editorHooks } from './hooks';
+import { base64 } from './base64';
 import { linkNotebook, notebookFor } from './links';
 import { cleanPath, listProjectFiles, readProjectFile, writeProjectFile } from './project-files';
 import { changeBetween, cursorOf, insertion } from './edits';
@@ -33,6 +34,12 @@ type Handler = (args: CommandArgs, ctx: CommandContext) => Promise<unknown> | un
 function str(value: unknown, name: string): string {
   if (typeof value !== 'string' || !value) throw new Error(`${name} must be a non-empty string`);
   return value;
+}
+
+function num(value: unknown, name: string): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) throw new Error(`${name} must be a number`);
+  return n;
 }
 
 function optStr(value: unknown): string | undefined {
@@ -61,6 +68,12 @@ function requireProjectName(): string {
 function requireProject(): FileSystemDirectoryHandle {
   requireProjectName();
   return get(projectHandle) as FileSystemDirectoryHandle;
+}
+
+function requirePdf(): Uint8Array {
+  const pdf = editorHooks()?.pdf();
+  if (!pdf) throw new Error('There is no PDF yet. Call tex_compile and wait until the compile is ready.');
+  return pdf;
 }
 
 // these have no text to hand over
@@ -230,6 +243,20 @@ const handlers: Record<string, Handler> = {
       log: get(compileLog).slice(-60).join('\n'),
       summary: state === 'success' ? 'ready' : state
     };
+  },
+
+  async pdf_page({ page, scale }) {
+    const pdf = requirePdf();
+    const n = page === undefined || page === null ? 1 : num(page, 'page');
+    const s = Math.min(4, Math.max(0.5, scale === undefined || scale === null ? 2 : num(scale, 'scale')));
+    const { renderPdfPage } = await import('./pdf-image');
+    const shot = await renderPdfPage(pdf, n, s);
+    return { ...shot, summary: `page ${n} of ${shot.pages}` };
+  },
+
+  pdf() {
+    const pdf = requirePdf();
+    return { pdf: base64(pdf), bytes: pdf.length, summary: `${Math.round(pdf.length / 1024)} KB` };
   },
 
   // the braiNOTES notebook that belongs to the open project, null unlinks
