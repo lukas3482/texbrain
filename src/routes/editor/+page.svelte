@@ -48,6 +48,7 @@
   import CollabPanel from '$lib/ui/CollabPanel.svelte';
   import GitPanel from '$lib/ui/GitPanel.svelte';
   import DrawioEditor from '$lib/ui/DrawioEditor.svelte';
+  import NotesButton from '$lib/ui/NotesButton.svelte';
 
   let editorView: EditorView | null = null;
   let pdfData: Uint8Array | undefined = undefined;
@@ -905,6 +906,7 @@
         <span>Git</span>
         {#if $gitChangeCount > 0}<span class="git-change-badge">{$gitChangeCount}</span>{/if}
       </button>
+      <NotesButton />
       <button class="action-btn collab-soon" disabled title="Collaboration coming soon">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="11.5" cy="5" r="2" stroke="currentColor" stroke-width="1.1"/><path d="M14.5 12c0-1.7-1.3-3-3-3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
         <span>Collab</span>
