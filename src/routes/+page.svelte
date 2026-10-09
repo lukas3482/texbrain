@@ -1,6 +1,15 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { base } from '$app/paths';
+  import { goto } from '$app/navigation';
   import Logo from '$lib/ui/Logo.svelte';
+
+  // tex.swimmingbrain.dev/?bridge is the address people remember; the editor
+  // is what reads the switch and the project, so carry them over
+  onMount(() => {
+    const params = new URL(location.href).searchParams;
+    if (params.has('bridge') || params.has('project')) void goto(`${base}/editor?${params.toString()}`, { replaceState: true });
+  });
 </script>
 
 <svelte:head>
