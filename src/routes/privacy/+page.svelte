@@ -23,7 +23,7 @@
 
   <div class="content">
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: August 26, 2026</p>
+    <p class="updated">Last updated: October 12, 2026</p>
 
     <h2>Overview</h2>
     <p>
@@ -76,6 +76,12 @@
       <strong>Diagrams.</strong> Opening a .drawio file embeds the diagrams.net editor from embed.diagrams.net.
       The diagram is handed to that editor inside your browser and diagrams.net's privacy policy applies to the
       embed. Nothing is loaded from there unless you open such a file.
+    </p>
+    <p>
+      <strong>Bridge.</strong> Switched on from the command palette or with ?bridge in the address, the editor
+      connects to brainbridge, a program you run on your own computer, at 127.0.0.1. Whatever you connect to
+      brainbridge can then read and change the open project and look at the compiled PDF. That connection never
+      leaves your machine, and it stays off unless you turn it on.
     </p>
 
     <h2>Cookies</h2>
