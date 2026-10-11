@@ -28,7 +28,7 @@
       : 'off';
 
   $: bridgeTitle = $bridge.state === 'connected'
-    ? `Connected to brainbridge ${$bridge.server ?? ''}. Click to disconnect`
+    ? `Connected to brainbridge${$bridge.server ? ' ' + $bridge.server : ''} on port ${$bridge.port}. Click to disconnect`
     : $bridge.state === 'connecting'
       ? `brainbridge is not running on port ${$bridge.port}. Start it (brainbridge --port ${$bridge.port}), or let the MCP client it is added to start it, and the tab connects on its own. If the browser asks to let this site reach apps on this device, allow it. Click to switch the bridge off`
       : 'Another tab has the bridge, Bridge: connect in the palette takes it back. Click to switch it off';
