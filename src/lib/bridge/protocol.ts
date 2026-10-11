@@ -1,5 +1,5 @@
-// the wire protocol between this tab and brainbridge, the server on this
-// machine. brainotes speaks the same one; keep the copies identical.
+// the wire protocol between the brainbridge server and the brainotes and
+// texbrain tabs. the server and brainotes have the same file, keep them identical
 
 export const PROTOCOL_VERSION = 1;
 export const DEFAULT_PORT = 7332;
@@ -24,7 +24,7 @@ export interface ResultMessage {
   error?: string;
 }
 
-// tab -> server, something happened that nobody asked about (a compile ended, another project opened)
+// tab -> server, something happened that nobody asked about (compile state, another document opened)
 export interface EventMessage {
   type: 'event';
   name: string;
