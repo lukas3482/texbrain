@@ -81,9 +81,12 @@ const BINARY = /\.(png|jpe?g|gif|bmp|webp|pdf|eps|ps|tfm|pfb|vf|otf|ttf|woff2?|z
 
 // an open tab shows what was written. the one in the editor gets it through
 // the view, so ctrl+z brings the old text back
-function showWritten(path: string, text: string): void {
+async function showWritten(path: string, text: string): Promise<void> {
   const tab = get(files).find((f) => f.path === path);
   if (!tab) return;
+  // unsaved edits in a tab in the background are not thrown away unseen, the
+  // tab comes up and the write is an undo step there as well
+  if (tab.dirty && tab.id !== get(activeFileId) && !isDrawio(tab.name)) await focusFile(path);
   const view = tab.id === get(activeFileId) && !isDrawio(tab.name) ? editorHooks()?.view() : null;
   const change = view ? changeBetween(view.state.doc.toString(), text) : null;
   if (view && change) view.dispatch({ changes: change });
@@ -204,7 +207,7 @@ const handlers: Record<string, Handler> = {
     const p = cleanPath(path);
     if (typeof text !== 'string') throw new Error('text must be a string');
     const created = await writeProjectFile(requireProject(), p, text);
-    showWritten(p, text);
+    await showWritten(p, text);
     if (created) await refreshProjectTree();
     return { path: p, size: new TextEncoder().encode(text).length, created, summary: `${created ? 'created' : 'wrote'} ${p}` };
   },
