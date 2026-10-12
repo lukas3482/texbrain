@@ -23,6 +23,12 @@ texbrain is a full LaTeX editor that compiles your `.tex` files to PDF directly 
 
 You can open a local project folder, edit your files, see the PDF update, commit your changes, and push to GitHub. All from one tab.
 
+Type, and the PDF follows a second after you stop:
+
+<p align="center">
+  <img src="docs/latex.gif" alt="A line and a formula typed into main.tex, the PDF shows them a second later" width="800" />
+</p>
+
 ## Features
 
 - **LaTeX compilation in the browser.** Uses a WebAssembly port of pdfTeX (SwiftLaTeX). Your `.tex` files are compiled to PDF without ever leaving your machine. Packages are loaded on demand and cached locally, so the first compile only downloads what your document actually uses. Recompilations take 1 to 5 seconds depending on project complexity.
