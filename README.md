@@ -83,6 +83,19 @@ A few things to know:
 - The token is stored in your browser's localStorage and nowhere else. Remove it in the settings when you are on a shared computer.
 - When both sides changed the same lines, nothing is touched and you get told which files, so you can sort it out in a terminal. Conflict resolution inside the editor is on the list.
 
+## Bridge
+
+The bridge connects TeXbrain to [brainBRIDGE](https://github.com/swimmingbrain/brainbridge), a small server on your computer, so a coding agent can write into your project, compile it and look at the PDF, for example to write up a page of your handwritten notes from [braiNOTES](https://github.com/swimmingbrain/brainotes).
+
+<p align="center">
+  <img src="docs/bridge.gif" alt="Bridge: connect from the palette turns the status bar segment green, the server puts a section and a table into main.tex and the PDF follows, the braiNOTES button opens the linked notebook" width="800" />
+</p>
+
+- Open [tex.swimmingbrain.dev/editor?bridge](https://tex.swimmingbrain.dev/editor?bridge) or run `Bridge: connect` from the command palette. Allow the local connection when the browser asks and the Bridge segment in the status bar turns green. `Bridge: disconnect` switches it off.
+- `Link braiNOTES notebook` in the palette ties the project to a notebook, the braiNOTES button in the top bar then opens it.
+- Every edit that comes over the bridge is one undo step in the editor.
+- The socket only goes to 127.0.0.1, your files still never leave your computer.
+
 ## Known limitations
 
 - **pdfTeX only.** No XeTeX or LuaTeX, so `fontspec`, `polyglossia`, the TikZ `graphdrawing` library and anything else that needs them won't compile.
